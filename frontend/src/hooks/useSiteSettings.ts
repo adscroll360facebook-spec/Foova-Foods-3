@@ -12,6 +12,7 @@ export const SITE_KEYS = {
     COUPON_BANNER_TEXT: "coupon_banner_text",
     COUPON_BANNER_EXPIRY: "coupon_banner_expiry",
     COUPON_BANNER_VISIBLE: "coupon_banner_visible",
+    GOOGLE_LOGIN_ENABLED: "google_login_enabled",  // Admin-controlled Google OAuth toggle
 } as const;
 
 type SiteKey = (typeof SITE_KEYS)[keyof typeof SITE_KEYS];
