@@ -19,6 +19,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Use absolute backend URL for all API calls — critical for Vercel+Render split deployment
+const API_URL = import.meta.env.VITE_API_URL || "https://foova-foods-3.onrender.com";
+
+async function apiFetch(path: string, options?: RequestInit) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers || {}),
+    },
+  });
+  const data = await res.json();
+  if (!res.ok && data.error) throw new Error(data.error);
+  return data;
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -33,14 +49,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const initAuth = useCallback(async () => {
     const token = localStorage.getItem("foova_token");
     const storedUser = localStorage.getItem("foova_user");
-
     if (token && storedUser) {
       try {
         const u = JSON.parse(storedUser);
         applyUser(u);
-      } catch { /* ignore */ }
+      } catch { /* ignore parse errors */ }
     }
-
     setLoading(false);
   }, []);
 
@@ -50,14 +64,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
+      const data = await apiFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
-
-      if (data.error) return { error: data.error };
       if (data.token && data.user) {
         localStorage.setItem("foova_token", data.token);
         applyUser(data.user);
@@ -68,20 +78,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Google OAuth is handled via redirect — this handles the token from /google-success
-  const signInWithGoogle = async (credential: string) => {
+  // Called after Google OAuth redirect returns a JWT token
+  const signInWithGoogle = async (token: string) => {
     try {
-      // Store the token from google redirect (used by GoogleSuccess page)
-      localStorage.setItem("foova_token", credential);
-      // Try to decode basic info from JWT
+      localStorage.setItem("foova_token", token);
+      // Decode user info from JWT payload
       try {
-        const parts = credential.split(".");
+        const parts = token.split(".");
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1]));
-          const userData = { id: payload.id, role: payload.role };
+          const userData: User = { id: payload.id, role: payload.role };
           applyUser(userData);
         }
-      } catch { /* ignore */ }
+      } catch { /* ignore decode errors */ }
       return {};
     } catch (err: any) {
       return { error: err.message || "Google sign in failed" };
@@ -90,14 +99,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      const res = await fetch("/api/auth/register", {
+      const data = await apiFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, full_name: fullName })
       });
-      const data = await res.json();
-
-      if (data.error) return { error: data.error };
       if (data.token && data.user) {
         localStorage.setItem("foova_token", data.token);
         applyUser(data.user);

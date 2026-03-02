@@ -48,7 +48,9 @@ const Signup = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    window.location.href = "/api/auth/google";
+    // Must use absolute URL pointing to Render backend — NOT relative /api
+    const apiUrl = import.meta.env.VITE_API_URL || "https://foova-foods-3.onrender.com";
+    window.location.href = `${apiUrl}/api/auth/google`;
   };
 
   return (

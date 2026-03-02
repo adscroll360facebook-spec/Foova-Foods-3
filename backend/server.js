@@ -30,7 +30,9 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { error: "Too many requests from this IP, please try again after 15 minutes" }
 });
 app.use(globalLimiter);
@@ -92,37 +94,52 @@ app.use(async (req, res, next) => {
     next();
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || "foova_secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) console.error("❌ CRITICAL: JWT_SECRET env var is not set!");
 
 // ─── Email Transporter ───────────────────────────────────────────────────
 let transporter = null;
 function getTransporter() {
     if (transporter) return transporter;
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        console.warn("⚠️ Email not configured: EMAIL_USER or EMAIL_PASS missing");
+        return null;
+    }
     transporter = nodemailer.createTransport({
-        host: "smtp.hostinger.com",
-        port: 465,
+        host: process.env.EMAIL_HOST || "smtp.hostinger.com",
+        port: parseInt(process.env.EMAIL_PORT || "465"),
         secure: true,
         auth: {
-            user: process.env.EMAIL_USER || "info@foovafoods.com",
+            user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
         },
-        tls: { rejectUnauthorized: false }
+        tls: { rejectUnauthorized: false },
+        pool: true,
+        maxConnections: 3,
+    });
+    // Verify connection on startup
+    transporter.verify((err) => {
+        if (err) console.error("❌ Email transporter error:", err.message);
+        else console.log("✅ Email transporter ready:", process.env.EMAIL_USER);
     });
     return transporter;
 }
+// Initialize email on startup
+getTransporter();
 
 async function sendEmail({ to, subject, html }) {
     try {
         const t = getTransporter();
+        if (!t) { console.warn(`Email skipped (not configured): ${subject} → ${to}`); return; }
         await t.sendMail({
-            from: `"FOOVA FOODS" <${process.env.EMAIL_USER || "info@foovafoods.com"}>`,
+            from: `"FOOVA FOODS" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             html,
         });
-        console.log(`Email sent to ${to}: ${subject}`);
+        console.log(`✅ Email sent to ${to}: ${subject}`);
     } catch (err) {
-        console.error("Email error:", err.message);
+        console.error("❌ Email error:", err.message);
     }
 }
 
