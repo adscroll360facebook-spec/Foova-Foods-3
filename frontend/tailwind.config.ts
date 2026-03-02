@@ -14,9 +14,27 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['"Playfair Display"', 'serif'],
-        sans: ['Poppins', 'sans-serif'],
+        // Inter as universal font — modern, clean, professional SaaS-style
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       },
+      fontSize: {
+        // Fluid responsive type scale
+        'xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '0.01em' }],
+        'sm': ['0.875rem', { lineHeight: '1.6', letterSpacing: '0.005em' }],
+        'base': ['1rem', { lineHeight: '1.7', letterSpacing: '0' }],
+        'lg': ['1.125rem', { lineHeight: '1.65', letterSpacing: '-0.005em' }],
+        'xl': ['1.25rem', { lineHeight: '1.55', letterSpacing: '-0.01em' }],
+        '2xl': ['1.5rem', { lineHeight: '1.4', letterSpacing: '-0.015em' }],
+        '3xl': ['1.875rem', { lineHeight: '1.3', letterSpacing: '-0.02em' }],
+        '4xl': ['2.25rem', { lineHeight: '1.2', letterSpacing: '-0.025em' }],
+        '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.03em' }],
+        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.035em' }],
+        '7xl': ['4.5rem', { lineHeight: '1', letterSpacing: '-0.04em' }],
+        '8xl': ['6rem', { lineHeight: '1', letterSpacing: '-0.04em' }],
+      },
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
