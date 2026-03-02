@@ -63,13 +63,34 @@ app.use(passport.initialize());
 // ─── DB ──────────────────────────────────────────────────────────────────
 let db = null;
 const client = new MongoClient(process.env.MONGODB_URI, {
-    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
+    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    serverSelectionTimeoutMS: 8000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 10000,
+    heartbeatFrequencyMS: 10000,
 });
 async function connectDB() {
-    if (!db) { await client.connect(); db = client.db("foovafoods"); }
+    if (!db) {
+        await client.connect();
+        db = client.db("foovafoods");
+        console.log("✅ MongoDB connected");
+    }
     return db;
 }
-app.use(async (req, res, next) => { if (!db) await connectDB(); next(); });
+// Pre-connect at startup — eliminates first-request DB lag
+connectDB().catch(err => console.error("MongoDB startup connection error:", err.message));
+
+// Middleware: ensure DB is connected before handling requests
+app.use(async (req, res, next) => {
+    if (!db) {
+        try { await connectDB(); } catch (err) {
+            return res.status(503).json({ error: "Database unavailable, please retry" });
+        }
+    }
+    next();
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || "foova_secret";
 
@@ -303,10 +324,29 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 // ─── Auth Routes ───────────────────────────────────────────────────────────
-app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+// Root route — shows API status (fixes "Cannot GET /" on Render)
+app.get("/", (req, res) => {
+    res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>FOOVA FOODS API</title>
+    <meta http-equiv="refresh" content="0;url=${FRONTEND_URL}">
+    <style>body{margin:0;background:#0a0f0a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:#D4A843;}</style>
+    </head><body><div style="text-align:center">
+    <h1>🌙 FOOVA FOODS</h1><p style="color:#8aab8a">Redirecting to shop...</p>
+    <a href="${FRONTEND_URL}" style="color:#D4A843">Click here if not redirected</a>
+    </div></body></html>`);
+});
+
+// Keep-alive ping endpoint — prevents Render cold start lag
+app.get("/api/ping", (req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+
+// Google OAuth — use select_account to skip consent screen when already logged in
+app.get("/api/auth/google", passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+}));
 app.get("/api/auth/google/callback",
-    passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login` }),
+    passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_failed` }),
     (req, res) => {
+        if (!req.user) return res.redirect(`${FRONTEND_URL}/login?error=google_failed`);
         const { token } = req.user;
         res.redirect(`${FRONTEND_URL}/google-success?token=${token}`);
     }
@@ -810,10 +850,19 @@ app.post("/api/admin/offers", async (req, res) => {
 // ─── Static Files ────────────────────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
+// Serve frontend if built (for single-server deployments)
 const dist = path.join(__dirname, "../frontend/dist");
 if (fs.existsSync(dist)) {
     app.use(express.static(dist));
     app.get("*", (req, res) => res.sendFile(path.join(dist, "index.html")));
 }
 
-app.listen(PORT, () => console.log(`✅ FOOVA FOODS Server running on port ${PORT}`));
+// 404 fallback for unknown API routes
+app.use((req, res) => {
+    if (req.path.startsWith("/api/")) {
+        return res.status(404).json({ error: `API route not found: ${req.path}` });
+    }
+    res.redirect(FRONTEND_URL);
+});
+
+app.listen(PORT, () => console.log(`✅ FOOVA FOODS API running on port ${PORT}`));
