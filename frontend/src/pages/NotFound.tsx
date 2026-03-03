@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 
 // ─── Animated floating food emoji orbs ───────────────────────────────────────
@@ -50,9 +50,10 @@ function useCountdown(seconds: number, onComplete: () => void) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+const HOME_URL = "https://www.foovafoods.com/";
+
 const NotFound = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
   const orbs = generateOrbs();
 
@@ -63,7 +64,7 @@ const NotFound = () => {
     return () => clearTimeout(t);
   }, [location.pathname]);
 
-  const handleRedirect = () => navigate("/");
+  const handleRedirect = () => { window.location.href = HOME_URL; };
   const countdown = useCountdown(10, handleRedirect);
 
   return (
@@ -154,25 +155,25 @@ const NotFound = () => {
 
             {/* Buttons */}
             <div className="nf-actions">
-              <button
+              <a
                 id="nf-home-btn"
+                href={HOME_URL}
                 className="nf-btn nf-btn--primary"
-                onClick={handleRedirect}
                 aria-label="Go back to Foova Foods homepage"
               >
                 <span className="nf-btn__icon" aria-hidden="true">🏠</span>
                 Back to Home
-              </button>
+              </a>
 
-              <button
+              <a
                 id="nf-contact-btn"
+                href="https://www.foovafoods.com/contact"
                 className="nf-btn nf-btn--secondary"
-                onClick={() => navigate("/contact")}
                 aria-label="Contact Foova Foods support"
               >
                 <span className="nf-btn__icon" aria-hidden="true">💬</span>
                 Contact Support
-              </button>
+              </a>
             </div>
 
             {/* Brand footer note */}
